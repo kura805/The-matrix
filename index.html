@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Matrix Terminal v2.2 - Expanded Operations</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: black;
+            font-family: 'Share Tech Mono', monospace; /* More futuristic font */
+            color: #0F0;
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><text x="0" y="15" fill="green" font-family="monospace" font-size="16">█</text></svg>') 8 8, auto; /* Custom cursor */
+            transition: background-color 0.8s ease;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            filter: blur(0.5px) brightness(1.2);
+            transition: filter 0.1s ease-in-out; /* For burst effect */
+        }
+
+        #terminal {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 2;
+            box-shadow: 0 -5px 15px rgba(0, 255, 0, 0.2);
+        }
+
+        #input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #0F0;
+            font-size: 18px;
+            font-family: 'Share Tech Mono', monospace;
+            padding-right: 15px; /* Space for potential cursor glitch */
+            caret-color: #0F0; /* Default caret color */
+        }
+
+        #input::placeholder {
+            color: #0F0;
+            opacity: 0.5;
+        }
+
+        #input:focus {
+            caret-color: #0F0; /* Ensure caret stays green on focus */
+        }
+
+        /* Cursor glitch effect */
+        #input.cursor-glitch {
+            animation: cursorFlicker 0.3s steps(1) infinite alternate;
+        }
+
+        @keyframes cursorFlicker {
+            0% { caret-color: transparent; }
+            50% { caret-color: #0F0; }
+            100% { caret-color: transparent; }
+        }
+
+
+        #output {
+            position: absolute;
+            bottom: 60px;
+            left: 10px;
+            z-index: 2;
+            max-height: calc(100vh - 120px); /* Adjusted for terminal size */
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 16px;
+            padding-right: 20px; /* Prevent text being hidden by scrollbar */
+            transition: all 0.3s ease;
+            text-shadow: 0 0 2px #0F0;
+        }
+
+        #output::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #output::-webkit-scrollbar-track {
+            background: rgba(0, 255, 0, 0.05);
+        }
+
+        #output::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 0, 0.4);
+            border-radius: 4px;
+        }
+
+        #output::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 0, 0.6);
+        }
+
+
+        .glitch {
+            animation: pulse 0.15s infinite alternate;
+            text-shadow: 0 0 3px #0F0, 0 0 6px #0F0;
+        }
+
+        @keyframes pulse {
+            0% { text-shadow: 0 0 3px #0F0, 0 0 6px #0F0; }
+            100% { text-shadow: 0 0 6px #0F0, 0 0 12px #0F0; }
+        }
+
+        .glitch-full-screen {
+            animation: globalGlitch 0.2s steps(1) infinite alternate;
+        }
+
+        @keyframes globalGlitch {
+            0% {
+                filter: hue-rotate(0deg) saturate(1) brightness(1) contrast(1);
+                transform: translate(0, 0);
+            }
+            33% {
+                filter: hue-rotate(15deg) saturate(1.5) brightness(1.1) contrast(1.2);
+                transform: translate(2px, -2px);
+            }
+            66% {
+                filter: hue-rotate(-10deg) saturate(0.8) brightness(0.9) contrast(0.8);
+                transform: translate(-3px, 3px);
+            }
+            100% {
+                filter: hue-rotate(0deg) saturate(1) brightness(1) contrast(1);
+                transform: translate(0, 0);
+            }
+        }
+
+
+        #reveal-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #0F0;
+            font-size: 38px;
+            font-family: 'Share Tech Mono', monospace;
+            text-shadow: 0 0 12px #0F0, 0 0 25px #0F0, 0 0 40px #0F0;
+            z-index: 3;
+            display: none;
+            white-space: nowrap;
+            transition: opacity 0.6s ease;
+        }
+
+        #rabbit {
+            position: absolute;
+            bottom: 90px;
+            left: -100px;
+            font-size: 32px;
+            color: #0F0;
+            z-index: 3;
+            display: none;
+            will-change: transform, filter; /* Add filter for rabbit glitch */
+            text-shadow: 0 0 5px #0F0;
+        }
+        #rabbit .ear {
+            position: absolute;
+            top: -15px;
+            transform-origin: bottom center;
+            display: inline-block; /* Ensure ears are laid out side-by-side */
+            padding: 0 2px; /* Small gap between ear and face */
+        }
+        #rabbit .ear.left {
+            left: -15px; /* Adjust relative to face */
+        }
+        #rabbit .ear.right {
+            right: -15px; /* Adjust relative to face */
+        }
+        #rabbit .face {
+            display: inline-block;
+        }
+        #rabbit .body {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8em;
+        }
+
+        /* Loading state dots animation */
+        .loading-dots span {
+            opacity: 0;
+            animation: dot-pulse 1s infinite;
+        }
+        .loading-dots span:nth-child(1) { animation-delay: 0s; }
+        .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes dot-pulse {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+
+    </style>
+</head>
+<body>
+    <canvas id="matrix"></canvas>
+    <div id="reveal-message"></div>
+    <div id="rabbit"></div>
+    <div id="output"></div>
+    <div id="terminal">
+        <input type="text" id="input" placeholder="> type a command...">
+    </div>
+
+    <audio id="typingSound" src="https://assets.mixkit.co/sfx/preview/mixkit-typewriter-key-press-1845.mp3" preload="auto"></audio>
+    <audio id="commandExecuteSound" src="https://assets.mixkit.co/sfx/preview/mixkit-game-futuristic-software-selection-2804.mp3" preload="auto"></audio>
+    <audio id="matrixAmbient" src="https://assets.mixkit.co/sfx/preview/mixkit-space-glitch-notification-2736.mp3" loop preload="auto" volume="0.1"></audio>
+    <audio id="rabbitHopSound" src="https://assets.mixkit.co/sfx/preview/mixkit-thump-3211.mp3" preload="auto" volume="0.3"></audio>
+    <audio id="revealSound" src="https://assets.mixkit.co/sfx/preview/mixkit-digital-glitch-sound-2747.mp3" preload="auto" volume="0.7"></audio>
+    <audio id="errorSound" src="https://assets.mixkit.co/sfx/preview/mixkit-digital-error-glitch-5085.mp3" preload="auto" volume="0.5"></audio>
+    <audio id="scanSound" src="https://assets.mixkit.co/sfx/preview/mixkit-scanner-beep-995.mp3" preload="auto" volume="0.4"></audio>
+    <audio id="pingSound" src="https://assets.mixkit.co/sfx/preview/mixkit-sci-fi-confirmation-tone-2856.mp3" preload="auto" volume="0.3"></audio>
+
+
+    <script>
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+        const input = document.getElementById('input');
+        const output = document.getElementById('output');
+        const revealMessage = document.getElementById('reveal-message');
+        const rabbit = document.getElementById('rabbit');
+
+        // Sound Elements
+        const typingSound = document.getElementById('typingSound');
+        const commandExecuteSound = document.getElementById('commandExecuteSound');
+        const matrixAmbient = document.getElementById('matrixAmbient');
+        const rabbitHopSound = document.getElementById('rabbitHopSound');
+        const revealSound = document.getElementById('revealSound');
+        const errorSound = document.getElementById('errorSound');
+        const scanSound = document.getElementById('scanSound');
+        const pingSound = document.getElementById('pingSound');
+
+        // Matrix Rain Variables
+        const letters = 'アァイゥエオカキクケコサシスセソタチツテトナニヌネノ0123456789';
+        let fontSize = 16;
+        let columns;
+        let drops;
+
+        let burst = false;
+        let burstTimer = 0;
+        let lastCommand = ''; // For contextual AI
+
+        // Command History
+        const commandHistory = [];
+        let historyIndex = -1;
+
+        // Global Glitch Timer
+        let globalGlitchTimeout = null;
+
+        // Simulate operator identity
+        const operatorId = "OPR-709";
+        const operatorAlias = "Red_Pill_User";
+        const currentLocation = "Ogden, Utah, United States";
+
+        // Initialize canvas and drops
+        function initializeMatrix() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            columns = Math.floor(canvas.width / fontSize);
+            drops = Array.from({ length: columns }).fill(1);
+        }
+
+        initializeMatrix(); // Initial setup
+
+        // Matrix Rain Drawing Function
+        function draw() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#0F0';
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = letters[Math.floor(Math.random() * letters.length)];
+                let currentFontSize = fontSize;
+
+                // Enhanced Burst Effect: Temporarily larger characters and brighter
+                if (burst && Math.random() > 0.5) {
+                    currentFontSize = fontSize * (1 + Math.random() * 0.5); // Larger characters
+                    ctx.fillStyle = `rgba(0, 255, 0, ${0.5 + Math.random() * 0.5})`; // Brighter
+                } else {
+                    ctx.fillStyle = '#0F0';
+                }
+
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+
+            // Burst effect management
+            if (burst) {
+                burstTimer++;
+                if (burstTimer > 15) { // Shorter, more intense burst
+                    burst = false;
+                    burstTimer = 0;
+                    canvas.style.filter = 'blur(0.5px) brightness(1.2)'; // Reset filter after burst
+                } else {
+                    // Apply a subtle canvas filter during burst for ripple/distortion
+                    canvas.style.filter = `blur(${0.5 + burstTimer * 0.05}px) brightness(${1.2 + burstTimer * 0.03}) hue-rotate(${burstTimer * 5}deg)`;
+                }
+            }
+        }
+        setInterval(draw, 33);
+
+        // Function to trigger a global screen glitch
+        function triggerGlobalGlitch(duration = 300) {
+            document.body.classList.add('glitch-full-screen');
+            clearTimeout(globalGlitchTimeout); // Clear any existing glitch
+            globalGlitchTimeout = setTimeout(() => {
+                document.body.classList.remove('glitch-full-screen');
+            }, duration);
+        }
+
+        // Input Event Listener
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                const command = input.value.trim();
+                if (command) {
+                    commandExecuteSound.currentTime = 0; // Rewind to start
+                    commandExecuteSound.play().catch(e => console.log("Sound play failed:", e));
+
+                    handleCommand(command);
+                    commandHistory.push(command);
+                    historyIndex = commandHistory.length;
+                    input.value = '';
+                    burst = true;
+                    input.classList.remove('cursor-glitch'); // Stop cursor glitch on enter
+                }
+            } else if (e.key === 'ArrowUp') {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    input.value = commandHistory[historyIndex];
+                }
+                e.preventDefault(); // Prevent cursor from moving to start of input
+            } else if (e.key === 'ArrowDown') {
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    input.value = commandHistory[historyIndex];
+                } else {
+                    input.value = '';
+                }
+                e.preventDefault(); // Prevent cursor from moving to end of input
+            }
+        });
+
+        // Cursor Glitch Effect
+        let cursorGlitchInterval = setInterval(() => {
+            if (Math.random() > 0.7) { // Randomly trigger glitch
+                input.classList.toggle('cursor-glitch');
+            }
+        }, 500); // Check every half second
+
+
+        // Command Handler
+        async function handleCommand(cmd) { // Make async for loading state
+            lastCommand = cmd; // Store the last command
+            const cmdLower = cmd.toLowerCase(); // Use lowercase for comparison
+
+            // Command Aliases
+            let processedCmd = cmdLower;
+            if (cmdLower === 'h') processedCmd = 'help';
+            else if (cmdLower === 'c') processedCmd = 'clear';
+            else if (cmdLower === 'r') processedCmd = 'reveal';
+            else if (cmdLower === 'w') processedCmd = 'wake';
+            else if (cmdLower === 's') processedCmd = 'sleep';
+            else if (cmdLower === 'sys') processedCmd = 'system';
+            else if (cmdLower === 'st') processedCmd = 'status'; // Alias for status
+            else if (cmdLower === 'who') processedCmd = 'whoami'; // Alias for whoami
+
+            printOutput("> " + cmd); // Echo the command back to output
+
+            let response = '';
+            let needsLoading = false;
+
+            if (processedCmd === 'help') {
+                response = "\nAvailable commands:\n- help (h)\n- clear (c)\n- reveal (r)\n- wake (w)\n- sleep (s)\n- system (sys)\n- status (st)\n- whoami (who)\n- date\n- scan\n- ping [host]\n- decrypt [code]\n- echo [text]\n- redpill\n- bluepill\n- neo\n- follow";
+                aiReply("Help menu displayed.");
+            } else if (processedCmd === 'clear') {
+                output.innerText = '';
+                aiReply("Terminal output cleared.");
+            } else if (processedCmd === 'reveal') {
+                revealMatrixMessage();
+                aiReply("Revealing system message fragment.");
+            } else if (processedCmd === 'wake') {
+                document.body.style.backgroundColor = '#001100';
+                aiReply("Initializing matrix consciousness...");
+            } else if (processedCmd === 'sleep') {
+                document.body.style.backgroundColor = 'black';
+                aiReply("System entering low-energy state.");
+            } else if (processedCmd.startsWith('echo ')) {
+                const msg = cmd.slice(5);
+                aiReply(msg);
+            } else if (processedCmd === 'system') {
+                needsLoading = true;
+                await showLoadingState("Accessing core data");
+                const date = new Date();
+                const hours = date.getHours().toString().padStart(2, '0');
+                const minutes = date.getMinutes().toString().padStart(2, '0');
+                const seconds = date.getSeconds().toString().padStart(2, '0');
+                response = `[SYS] Uptime: 512 cycles | Memory Load: 37% | Temp: 29°C | Time: ${hours}:${minutes}:${seconds} MDT`;
+                aiReply(response);
+            } else if (processedCmd === 'status') {
+                needsLoading = true;
+                scanSound.currentTime = 0; scanSound.play().catch(e => console.log("Scan sound play failed:", e));
+                await showLoadingState("Gathering system diagnostics");
+                const currentDateTime = new Date();
+                const formattedDate = currentDateTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                const formattedTime = currentDateTime.toLocaleTimeString('en-US');
+                response = `
+[STATUS REPORT]
+--------------------------------
+Operator ID: ${operatorId} (${operatorAlias})
+Location: ${currentLocation}
+Current Time: ${formattedTime}
+Current Date: ${formattedDate}
+Matrix Version: 9.0.1 (Stable)
+CPU Usage: ${(Math.random() * 10 + 25).toFixed(2)}%
+Memory Usage: ${(Math.random() * 15 + 30).toFixed(2)}%
+Network Latency: ${(Math.random() * 5 + 10).toFixed(0)}ms (Local)
+Active Connections: ${Math.floor(Math.random() * 500 + 100)}
+Threat Level: Green (Nominal)
+Last Data Stream: ${formattedTime}
+--------------------------------
+System Integrity: Optimal
+                `;
+                aiReply(response);
+            } else if (processedCmd === 'whoami') {
+                needsLoading = true;
+                await showLoadingState("Authenticating identity");
+                response = `
+[IDENTITY PROTOCOL]
+--------------------------------
+Designation: Operator
+ID: ${operatorId}
+Alias: ${operatorAlias}
+Status: Awakened
+Connection: Direct Neural Interface
+Authorization Level: Elevated
+Location Trace: ${currentLocation}
+--------------------------------
+Remember your purpose.
+                `;
+                aiReply(response);
+            } else if (processedCmd === 'date') {
+                const currentDateTime = new Date();
+                const formattedDate = currentDateTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                aiReply(`Current System Date: ${formattedDate}`);
+            } else if (processedCmd === 'scan') {
+                needsLoading = true;
+                scanSound.currentTime = 0; scanSound.play().catch(e => console.log("Scan sound play failed:", e));
+                await showLoadingState("Initiating deep system scan");
+                await showLoadingState("Analyzing data streams");
+                await showLoadingState("Verifying integrity checksums");
+                response = `
+[SCAN COMPLETE]
+--------------------------------
+Scan initiated by ${operatorAlias}
+Duration: 3.7 seconds
+Files Scanned: ${Math.floor(Math.random() * 500000 + 100000)}
+Threats Detected: 0
+Anomalies: Minor (Standard deviation in local node routing)
+Integrity Status: 99.8%
+--------------------------------
+Scan report generated. All primary functions nominal.
+                `;
+                aiReply(response);
+            } else if (processedCmd.startsWith('ping ')) {
+                needsLoading = true;
+                const targetHost = cmd.slice(5).trim();
+                if (!targetHost) {
+                    aiReply("Usage: ping [host]");
+                    return;
+                }
+                printOutput(`Pinging ${targetHost} with 32 bytes of data:`);
+                for (let i = 0; i < 4; i++) {
+                    await showLoadingState("", 500); // Shorter loading dots for each ping
+                    pingSound.currentTime = 0; pingSound.play().catch(e => console.log("Ping sound play failed:", e));
+                    const latency = Math.floor(Math.random() * 100 + 20); // 20-120ms latency
+                    printOutput(`Reply from ${targetHost}: bytes=32 time=${latency}ms TTL=${Math.floor(Math.random() * 50 + 64)}`);
+                }
+                aiReply(`Ping statistics for ${targetHost}: Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)`);
+            } else if (processedCmd.startsWith('decrypt ')) {
+                needsLoading = true;
+                const code = cmd.slice(8).trim();
+                await showLoadingState("Initiating decryption sequence");
+                if (code.toLowerCase() === 'zionescapes') { // A secret code!
+                    await showLoadingState("Accessing encrypted archives");
+                    response = "Decryption successful! Message: 'The path to Zion is always open to those who truly seek it.'";
+                } else if (code.toLowerCase() === 'agentoverride') {
+                    await showLoadingState("Security protocols engaged. Access denied.");
+                    response = "Decryption failed. Unauthorized code. Your attempt has been logged.";
+                    errorSound.currentTime = 0; errorSound.play().catch(e => console.log("Error sound failed:", e));
+                    triggerGlobalGlitch(300);
+                }
+                else {
+                    await showLoadingState("Analyzing encryption pattern");
+                    response = "Decryption failed. Unknown or corrupt key. Try 'zionescapes'.";
+                }
+                aiReply(response);
+            }
+            else if (processedCmd === 'redpill') {
+                aiReply("Choosing the red pill... interesting. The rabbit hole goes deeper.");
+                setTimeout(() => {
+                    printOutput("System message: 'You take the red pill, you stay in Wonderland, and I show you how deep the rabbit hole goes.'");
+                    triggerGlobalGlitch(1000); // Stronger glitch
+                }, 1500);
+            } else if (processedCmd === 'bluepill') {
+                aiReply("Choosing the blue pill. Return to your ordinary life. Or not.");
+                setTimeout(() => {
+                    printOutput("System message: 'You take the blue pill, the story ends, you wake up in your bed and believe whatever you want to believe.'");
+                    triggerGlobalGlitch(500); // Less intense glitch
+                    document.body.style.backgroundColor = '#000010'; // Slightly different black
+                }, 1500);
+            } else if (processedCmd === 'neo') {
+                if (commandHistory.includes('redpill')) {
+                    aiReply("You are the one. Prepare for anomaly detection.");
+                    setTimeout(() => {
+                        revealMessage.style.display = 'block';
+                        revealMessage.textContent = 'WAKE UP, NEO.';
+                        revealSound.currentTime = 0; revealSound.play();
+                        triggerGlobalGlitch(2000);
+                        setTimeout(() => {
+                            revealMessage.textContent = 'THE SYSTEM IS WAITING.';
+                            setTimeout(() => {
+                                revealMessage.style.display = 'none';
+                                printOutput("The Matrix has been fully exposed. What will you do?");
+                            }, 2000);
+                        }, 2500);
+                    }, 1500);
+                } else {
+                    aiReply("Access denied. Insufficient protocol sequence. (Hint: Try 'redpill' first)");
+                }
+            }
+            else if (processedCmd === 'follow') {
+                 if (lastRabbitShown) { // Check if rabbit was recently shown
+                     aiReply("Following the white rabbit... destination unknown.");
+                     setTimeout(() => {
+                         printOutput("You find yourself at a crossroad. The path diverges.");
+                     }, 1500);
+                 } else {
+                     aiReply("There is no rabbit to follow at the moment.");
+                 }
+             }
+            else {
+                printOutput("Unknown command. Type 'help' for a list of commands.");
+                errorSound.currentTime = 0; errorSound.play().catch(e => console.log("Sound play failed:", e));
+                triggerGlobalGlitch(150); // Small glitch on error
+                aiReply("Command not recognized. Suggesting assistance.");
+            }
+        }
+
+        let lastRabbitShown = false; // To track if rabbit was recently shown for 'follow' command
+
+        // Print Output Function
+        function printOutput(text) {
+            const span = document.createElement('div');
+            span.textContent = text;
+            span.style.opacity = '0';
+            output.appendChild(span);
+            output.scrollTop = output.scrollHeight;
+            setTimeout(() => {
+                span.style.opacity = '1';
+            }, 50);
+        }
+
+        // AI Reply Function with Typing Sound
+        function aiReply(message) {
+            const container = document.createElement('div');
+            container.className = 'glitch';
+            output.appendChild(container);
+
+            let i = 0;
+            typingSound.playbackRate = 1.5; // Faster typing sound
+            typingSound.loop = true; // Loop while typing
+
+            // Play typing sound only if not already playing
+            if (typingSound.paused) {
+                 typingSound.play().catch(e => console.log("Typing sound play failed:", e));
+            }
+
+            function typeChar() {
+                if (i < message.length) {
+                    container.textContent += message[i];
+                    i++;
+                    output.scrollTop = output.scrollHeight;
+                    setTimeout(typeChar, 25);
+                } else {
+                    container.classList.remove('glitch');
+                    typingSound.pause();
+                    typingSound.currentTime = 0; // Reset sound for next time
+                }
+            }
+
+            setTimeout(typeChar, 300); // Delay before AI starts typing
+        }
+
+        // Loading State Function
+        function showLoadingState(message, duration = null) {
+            return new Promise(resolve => {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.innerHTML = `${message} <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>`;
+                output.appendChild(loadingDiv);
+                output.scrollTop = output.scrollHeight;
+
+                setTimeout(() => {
+                    loadingDiv.remove(); // Remove loading message
+                    resolve();
+                }, duration || (1000 + Math.random() * 1000)); // Random delay between 1-2 seconds, or specific duration
+            });
+        }
+
+
+        // Reveal Matrix Message
+        function revealMatrixMessage() {
+            revealMessage.style.display = 'block';
+            revealMessage.textContent = 'THE MATRIX HAS YOU';
+            revealSound.currentTime = 0; // Rewind to start
+            revealSound.play().catch(e => console.log("Reveal sound play failed:", e));
+
+
+            setTimeout(() => {
+                revealMessage.textContent = 'Follow the white rabbit...';
+                showRabbit();
+                lastRabbitShown = true;
+                setTimeout(() => lastRabbitShown = false, 10000); // Rabbit visible for 10 seconds for 'follow'
+            }, 2000);
+
+            setTimeout(() => {
+                revealMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // Show Rabbit Animation
+        function showRabbit() {
+            rabbit.innerHTML = `
+                <span class="ear left">/\\</span>
+                <span class="face">(⦿.⦿)</span>
+                <span class="ear right">/\\</span>
+                <span class="body">( )</span>
+            `;
+            rabbit.style.display = 'block';
+
+            const duration = 5000;
+            const startX = -100;
+            const endX = window.innerWidth + 100;
+            const maxHopHeight = 40;
+            const hopFrequency = 0.008;
+            const maxBodyTilt = 15;
+            const earWiggleSpeed = 0.02;
+
+            let hopPhase = 0;
+            let isHopping = false;
+            let startTime = null;
+
+            function animateRabbit(timestamp) {
+                if (!startTime) startTime = timestamp;
+                const elapsed = timestamp - startTime;
+                const progress = elapsed / duration;
+
+                const easedProgress = progress < 0.5
+                    ? 2 * progress * progress
+                    : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+                const currentX = startX + (endX - startX) * easedProgress;
+
+                let currentY = 0;
+                let currentTilt = 0;
+
+                if ((Math.random() < hopFrequency || isHopping) && progress < 0.95) {
+                    isHopping = true;
+                    hopPhase += 0.1;
+
+                    currentY = -Math.abs(Math.sin(hopPhase)) * maxHopHeight;
+                    currentTilt = Math.sin(hopPhase * 2) * maxBodyTilt;
+
+                    if (hopPhase >= Math.PI) {
+                        hopPhase = 0;
+                        isHopping = false;
+                        rabbitHopSound.currentTime = 0; // Rewind for next hop
+                        rabbitHopSound.play().catch(e => console.log("Rabbit hop sound failed:", e));
+                    }
+                }
+
+                const earAngle = Math.sin(elapsed * earWiggleSpeed) * 15;
+                document.querySelector('#rabbit .ear.left').style.transform = `rotate(${-30 - earAngle}deg)`;
+                document.querySelector('#rabbit .ear.right').style.transform = `rotate(${30 + earAngle}deg)`;
+
+                rabbit.style.transform = `
+                    translateX(${currentX}px)
+                    translateY(${currentY}px)
+                    rotate(${currentTilt}deg)
+                `;
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateRabbit);
+                } else {
+                    rabbit.style.display = 'none';
+                    rabbit.style.transform = '';
+                    rabbit.innerHTML = '';
+                    lastRabbitShown = false; // Reset rabbit status
+                }
+            }
+
+            requestAnimationFrame(animateRabbit);
+
+            const glitchInterval = setInterval(() => {
+                if (Math.random() > 0.8) {
+                    rabbit.style.filter = 'brightness(1.8) sepia(1) hue-rotate(60deg)';
+                    setTimeout(() => {
+                        rabbit.style.filter = '';
+                    }, 50 + Math.random() * 100);
+                }
+            }, 300);
+
+            setTimeout(() => {
+                clearInterval(glitchInterval);
+            }, duration);
+        }
+
+        // Resize Event Listener
+        window.addEventListener('resize', initializeMatrix); // Re-initialize matrix on resize
+
+        // Initial setup for ambient sound and welcome message
+        document.addEventListener('DOMContentLoaded', () => {
+            // Try to play ambient sound only after user interaction
+            document.body.addEventListener('click', () => {
+                if (matrixAmbient.paused) {
+                    matrixAmbient.play().catch(e => console.log("Ambient sound play failed:", e));
+                }
+            }, { once: true }); // Only listen for one click
+
+            // Time-based greeting
+            const currentHour = new Date().getHours();
+            let greeting = "Welcome back, Operator.";
+            if (currentHour < 12 && currentHour >= 5) {
+                greeting = "Good morning, Operator. System ready.";
+            } else if (currentHour >= 18 || currentHour < 5) {
+                greeting = "The system is quiet this late hour, Operator. Proceed.";
+            }
+
+            printOutput("Connecting to Matrix... Establishing secure connection...");
+            aiReply(greeting);
+            printOutput("Type 'help' for commands.");
+        });
+
+    </script>
+</body>
+</html>
